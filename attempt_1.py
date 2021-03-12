@@ -1,5 +1,6 @@
+import time
+
 import pandas as pd
-from itertools import combinations
 
 
 def count_main_urls(iter):
@@ -10,55 +11,67 @@ def count_main_urls(iter):
     return count
 
 
-df = pd.read_csv('take_bet_serp_all_kenya_nigeria_south_africa_ghana_uganda.csv', sep=';')
-# urls = (set(df['URL'].to_list()))
-# print(len(urls))
+path = (input('Укажите местоположение файла csv: '))
+N = int(input('Укажите количество пересечений N: '))
+
+df = pd.read_csv(path, sep=';')
 phrases = list(sorted(set(df['PHRASES'].to_list())))
-print(len(phrases))
-# print(len(phrases))
-N = 5
 
 dic_df = {}
+length = len(phrases)
+print('Этап I')
 for i in phrases:
+    print(f'\r{round(phrases.index(i) / length * 100, 2)}%', end='')
     buffer_df = df.loc[df['PHRASES'] == i]
     dic_df[i] = buffer_df['URL'].to_list()
-    # print(phrases.index(i))
-
-
 
 final_df = pd.DataFrame(columns=['PHRASES', 'GROUP', 'MAIN_PAGE_COUNT'])
-# group_num = 1
+final_list = []
+group_num = 1
 
-'''for i in range(len(phrases)):
+print('\nЭтап II')
+
+for i in range(len(phrases)):
+    print(f'\r{round(i / length * 100, 2)}%', end='')
     init_phrase = phrases[i]
-    print(init_phrase)
     buffer_list = []
-    buffer_list.append([init_phrase, group_num])
-    for target_phrase in phrases[i + 1:]:
-        # print(target_phrase)
-        df_1 = df.loc[df['PHRASES'] == init_phrase]
-        list_by_url_1 = df_1['URL'].to_list()
-        df_2 = df.loc[df['PHRASES'] == target_phrase]
-        list_by_url_2 = df_2['URL'].to_list()
-        intersection = list(set(list_by_url_1) & set(list_by_url_2))
-        if len(intersection) >= N:
-            buffer_list.append([target_phrase, group_num, count_main_urls(intersection)])
-            print(buffer_list)
+    first_pass_indicator = True
+    try:
+        for target_phrase in phrases[i + 1:]:
+            # print(target_phrase)
+            urls_init = dic_df[init_phrase]
+            urls_target = dic_df[target_phrase]
+            intersection = list(set(urls_init) & set(urls_target))
+            if len(intersection) >= N:
+                count_main = count_main_urls(intersection)
+                if first_pass_indicator:
+                    buffer_list.append([init_phrase, group_num, count_main])
+                    buffer_list.append([target_phrase, group_num, count_main])
+                    first_pass_indicator = False
+                else:
+                    buffer_list.append([target_phrase, group_num, count_main])
+            else:
+                continue
         else:
-            continue
-    else:
-        if len(buffer_list) == 1:
-            continue
-        else:
-            buffer_df = pd.DataFrame(buffer_list)
-            min_main = min(buffer_df[2][1:])
-            for index, main_page_count in enumerate(buffer_df[2]):
-                buffer_df.at[index, main_page_count] = min_main
+            if len(buffer_list) == 0:
+                continue
+            else:
+                buffer_df = pd.DataFrame(buffer_list, columns=['PHRASES', 'GROUP', 'MAIN_PAGE_COUNT'])
+                min_main = min(buffer_df['MAIN_PAGE_COUNT'])
+                for index in buffer_df.index:
+                    buffer_df.at[index, 'MAIN_PAGE_COUNT'] = min_main
+                final_df = final_df.append(buffer_df)
+                group_num += 1
 
-            final_df = final_df.append(buffer_df)
-            group_num += 1
-'''
-# combs = list(combinations(urls, N))
-# print(combs)
-# print(final_df)
-# final_df.to_csv('grouped_phrases.csv', sep=';')
+    except IndexError:
+        break
+
+final_df = final_df.reset_index(drop=True)
+final_df.to_csv('grouped_phrases.csv', sep=';', index=False)
+
+phrases_after = sorted(set(final_df['PHRASES'].to_list()))
+diff_list = list(set(phrases) - set(phrases_after))
+diff_df = df[df['PHRASES'].isin(diff_list)]
+diff_df.to_csv('rest.csv', sep=';', index=False)
+
+print('DONE!')
