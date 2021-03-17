@@ -18,6 +18,7 @@ def count_main_urls(iter):
 dir = os.getcwd()  # вернуть текущую папку
 csv_files = [file for file in os.listdir(dir) if file.endswith(".csv")]  # список всех .csv файлов
 result_dir = 'RESULT'  # папка для сохранения результатов
+columns = ['PHRASES', 'GROUP', 'MAIN_PAGE_COUNT', 'URLS']  # список с названиями колонок
 
 N = int(input('Укажите количество пересечений N: '))  # запрос у пользователя количества пересечений для поиска
 
@@ -38,7 +39,7 @@ for file in csv_files:  # для каждого файла в списке
         buffer_df = df.loc[df['PHRASES'] == phrase]  # создать DataFrame с url
         dic_df[phrase] = buffer_df['URL'].to_list()  # добавить запись в словаря, где ключ – фраза, а значнеи – адреса
 
-    final_df = pd.DataFrame(columns=['PHRASES', 'GROUP', 'MAIN_PAGE_COUNT'])  # создать пустой финальный DataFrame
+    final_df = pd.DataFrame(columns=columns)  # пустой финальный DataFrame
     final_list = []  # пустой финальный список
     group_num = 1  # начальное значение группы
 
@@ -49,6 +50,7 @@ for file in csv_files:  # для каждого файла в списке
         buffer_list = []  # создать пустой буфферный лист
         first_pass_indicator = True  # индикация первого прохода
         current_intersection = []  # список для хранения совпадающих адресов
+        min_count_main = 0  # минимальное количество главных страниц
         try:  # обработка исключения ошибки несуществующего индекса. Должен срабатывать на последней фразе
             for target_phrase in phrases[i + 1:]:  # для каждой фразы в списке фраз без init_phrase
                 # print(target_phrase) # вывести фразу
@@ -67,21 +69,26 @@ for file in csv_files:  # для каждого файла в списке
 
                     count_main = count_main_urls(current_intersection)  # посчитать главные страницы
                     if first_pass_indicator:  # если это первый проход, то
-                        buffer_list.append([init_phrase, group_num, count_main])  # добавить первую фразу
-                        buffer_list.append([target_phrase, group_num, count_main])  # и вторую
-                        first_pass_indicator = False  # отметить, что первый проход бsk осуществлен
-                    else:  # если пеервый проход уже был, то
-                        buffer_list.append([target_phrase, group_num, count_main])  # добавить толкьо вторую фразу
+                        min_count_main = count_main  # указать что count_main минимально
+                        buffer_list.append([init_phrase, group_num])  # добавить первую фразу
+                        buffer_list.append([target_phrase, group_num])  # и вторую
+                        first_pass_indicator = False  # отметить, что первый проход был осуществлен
+                    else:  # если первый проход уже был, то
+                        if count_main < min_count_main:  # если новое значение count_main меньше минимального
+                            min_count_main = count_main  # задать новое значение min_count_main
+                        buffer_list.append([target_phrase, group_num])  # добавить только вторую фразу
                 else:  # если количество перечечений меньше N, то
                     continue  # начать цикл заново
             else:
                 if len(buffer_list) == 0:  # если проход по фразе не встретил перечечений ни с одной другой фразой, то
                     continue  # начать цикл заново
                 else:
-                    buffer_df = pd.DataFrame(buffer_list, columns=['PHRASES', 'GROUP', 'MAIN_PAGE_COUNT'])  # создать df
-                    min_main = min(buffer_df['MAIN_PAGE_COUNT'])  # найти минимальное количество главных страниц
+                    buffer_df = pd.DataFrame(buffer_list, columns=['PHRASES', 'GROUP'])  # создать буферный DataFrame
+                    buffer_df['MAIN_PAGE_COUNT'] = None  # добавление в DataFrame столбца 'MAIN_PAGE_COUNT'
+                    buffer_df['URLS'] = None  # добавление в DataFrame столбца 'URLS'
                     for index in buffer_df.index:  # для каждой строки
-                        buffer_df.at[index, 'MAIN_PAGE_COUNT'] = min_main  # поменять значение на минимальное
+                        buffer_df.at[index, 'MAIN_PAGE_COUNT'] = min_count_main  # задать значение главных страниц
+                        buffer_df.at[index, 'URLS'] = current_intersection  # записать список с пересечениями
                     final_df = final_df.append(buffer_df)  # моместить в финальный dataFrame
                     group_num += 1  # увеличить группу на 1
 
@@ -95,9 +102,9 @@ for file in csv_files:  # для каждого файла в списке
     final_df = final_df.reset_index(drop=True)  # реиндексирование
     final_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_grouped.csv', sep=';', index=False)  # запись в файл
 
-    phrases_after = sorted(set(final_df['PHRASES'].to_list())) # все сгруппированные фразы
-    diff_list = list(set(phrases) - set(phrases_after)) # фразы, которые не были сгруппированы
-    diff_df = df[df['PHRASES'].isin(diff_list)] # сортирвоака по Несгруппированным фразам
-    diff_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_rest.csv', sep=';', index=False) # запись в файл
+    phrases_after = sorted(set(final_df['PHRASES'].to_list()))  # все сгруппированные фразы
+    diff_list = list(set(phrases) - set(phrases_after))  # фразы, которые не были сгруппированы
+    diff_df = df[df['PHRASES'].isin(diff_list)]  # сортирвоака по Несгруппированным фразам
+    diff_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_rest.csv', sep=';', index=False)  # запись в файл
 
 print('\nDONE!')
