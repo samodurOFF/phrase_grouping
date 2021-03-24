@@ -15,35 +15,19 @@ def count_main_urls(iter):
     return count
 
 
-dir = os.getcwd()  # вернуть текущую папку
-csv_files = [file for file in os.listdir(dir) if file.endswith(".csv")]  # список всех .csv файлов
-result_dir = 'RESULT'  # папка для сохранения результатов
-columns = ['PHRASES', 'GROUP', 'MAIN_PAGE_COUNT', 'URLS']  # список с названиями колонок
-
-N = int(input('Укажите количество пересечений N: '))  # запрос у пользователя количества пересечений для поиска
-
-if not os.path.exists(result_dir):  # если данная дирректория не существует,
-    os.mkdir(result_dir)  # то ее необходимо создать
-
-print(f'Найдено файлов csv: {len(csv_files)} ')  # вывод информации о количестве файлов csv в консоль
-
-for file in csv_files:  # для каждого файла в списке
-    print(f'\nРабота с файлом {file}')  # вывести имя файла
-    df = pd.read_csv(file, sep=';')  # создать DataFrame
-    phrases = list(sorted(set(df['PHRASES'].to_list())))  # получить список фраз
+def group(phrases):
     length = len(phrases)  # посчитать длину списка с фразами
     dic_df = {}  # создать пустой именованный массив
-    print('Этап I/II')  # вывести этап работы
+    print('Этап I/III')  # вывести этап работы
     for phrase in phrases:  # для каждой фразы из списка фраз
         print(f'\r{round(phrases.index(phrase) / length * 100, 2)}%', end='')  # вывести процент обработанных фраз
         buffer_df = df.loc[df['PHRASES'] == phrase]  # создать DataFrame с url
-        dic_df[phrase] = buffer_df['URL'].to_list()  # добавить запись в словаря, где ключ – фраза, а значнеи – адреса
+        dic_df[phrase] = buffer_df['URL'].to_list()  # добавить запись в словаря, где ключ – фраза, а значени – адреса
 
     final_df = pd.DataFrame(columns=columns)  # пустой финальный DataFrame
-    final_list = []  # пустой финальный список
     group_num = 1  # начальное значение группы
 
-    print('\nЭтап II/II')  # вывод информации о начале второго этапа работы
+    print('\nЭтап II/III')  # вывод информации о начале второго этапа работы над файлом
     for i in range(len(phrases)):  # для каждой фразы в списке фраз
         print(f'\r{round(i / length * 100, 2)}%', end='')  # вывести процент отработанных фраз
         init_phrase = phrases[i]  # определить значение начальной фразы
@@ -95,16 +79,78 @@ for file in csv_files:  # для каждого файла в списке
         except IndexError:  # если проход по посленей фразе, то завершить цикл
             break
 
-    file_dir = file[:-4]  # по сути, это имя файла без расширения
-    if not os.path.exists(f'{result_dir}/{file_dir}'):  # если данная дирректория не существует,
-        os.mkdir(f'{result_dir}/{file_dir}')  # то ее необходимо создать
+    return final_df
 
-    final_df = final_df.reset_index(drop=True)  # реиндексирование
-    final_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_grouped.csv', sep=';', index=False)  # запись в файл
 
+def filtration(df):
+    while True:
+        columns = list(df.columns)  # список с именами колонок
+        final = pd.DataFrame(columns=columns)  # пустной финальный DataFrame
+        groups = sorted(set(df['GROUP'].to_list()))  # список всех групп
+        length = len(groups) - 1  # длина списка с группами - 1, для вывода процентов статус-бара ниже
+        print('Этап III/III')  # вывести этап работы
+        for index, group in enumerate(groups):  # для каждой группы из списка групп
+            print(f'\r{round(index / length * 100, 2)}%', end='')  # вывести процент обработанных групп
+            df_group = df.loc[df['GROUP'] == group]  # dataFrame по группе
+            if groups[index] == groups[-1]:  # если это последняя группа, то
+                break  # прекратить цикл
+
+            phrases_group = df_group['PHRASES'].to_list()  # список фрах из df_group
+            for next_group in groups[index + 1:]:  # для каждой группы из списка групп, за исключением уже используемой
+                df_next_group = df.loc[df['GROUP'] == next_group]  # dataFrame по группе
+                phrases_next_group = df_next_group['PHRASES'].to_list()  # список фрах из df_next_group
+                intersection = list(set(phrases_group) & set(phrases_next_group))  # перечечение списков с фразами
+                if intersection == phrases_group:  # если пересечение фраз равно спичку во внешнем цикле for, то
+                    final.append(phrases_next_group)  # то добавить внутренний список в финальный DataFrame
+                    break  # и завершить врутренний цикл for, чтобы перейти к следующей группе
+                elif intersection == phrases_next_group:  # если пересечение равно спичку во внутреннем цикле for, то
+                    final.append(phrases_group) # то добавить внешний список в финальный DataFrame
+                    break # и завершить врутренний цикл for, чтобы перейти к следующей группе
+                else:
+                    continue # если перечечений нет, то продолжить внутренний цикл
+
+        if len(final_df) == 0: # если после прохода циклов финальный фрэйм будет пустой, то
+            break # заверншить бесконечный цикл
+        else: # еслифинальный цикл не пустой, то повротить цикл заново,для повторной проверки перечечения
+            df = final # присвоить исходному фрэйму финальный
+            continue # и продолжить цикл
+
+    return df
+
+
+def save_rest(init_df, final_df, phrases, result_dir, file_dir):
     phrases_after = sorted(set(final_df['PHRASES'].to_list()))  # все сгруппированные фразы
     diff_list = list(set(phrases) - set(phrases_after))  # фразы, которые не были сгруппированы
-    diff_df = df[df['PHRASES'].isin(diff_list)]  # сортирвоака по Несгруппированным фразам
+    diff_df = init_df[init_df['PHRASES'].isin(diff_list)]  # сортирвоака по несгруппированным фразам
     diff_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_rest.csv', sep=';', index=False)  # запись в файл
+    print(f'\nФайл с несгрупированными фразами сохранен')
 
-print('\nDONE!')
+
+if __name__ == '__main__':
+    dir = os.getcwd()  # вернуть текущую папку
+    csv_files = [file for file in os.listdir(dir) if file.endswith(".csv")]  # список всех .csv файлов
+    result_dir = 'RESULT'  # папка для сохранения результатов
+    columns = ['PHRASES', 'GROUP', 'MAIN_PAGE_COUNT', 'URLS']  # список с названиями колонок
+    N = int(input('Укажите количество пересечений N: '))  # запрос у пользователя количества пересечений для поиска
+    if not os.path.exists(result_dir):  # если данная дирректория не существует,
+        os.mkdir(result_dir)  # то ее необходимо создать
+
+    print(f'Найдено файлов csv: {len(csv_files)} ')  # вывод информации о количестве файлов csv в консоль
+    for file in csv_files:  # для каждого файла в списке
+        print(f'\nРабота с файлом {file}')  # вывести имя файла
+        df = pd.read_csv(file, sep=';')  # создать DataFrame
+        phrases = list(sorted(set(df['PHRASES'].to_list())))  # получить список фраз
+        final_df = group(phrases)  # групировка фраз и создание final_df
+
+        file_dir = file[:-4]  # по сути, это имя файла без расширения
+        if not os.path.exists(f'{result_dir}/{file_dir}'):  # если данная дирректория не существует,
+            os.mkdir(f'{result_dir}/{file_dir}')  # то ее необходимо создать
+
+        final_df = final_df.reset_index(drop=True)  # реиндексирование
+        save_rest(df, final_df, phrases, result_dir, file_dir)  # сохранение несгрупированных фраз в отделный файл
+
+        final_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_grouped.csv', sep=';', index=False)  # запись в файл
+        final_df = filtration(final_df)
+        final_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_grouped.csv', sep=';', index=False)  # запись в файл
+
+    print('\nDONE!')
