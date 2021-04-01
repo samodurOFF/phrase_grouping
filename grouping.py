@@ -15,19 +15,19 @@ def count_main_urls(iter):
     return count
 
 
-def group(phrases):
+def group(phrases, df):
     length = len(phrases)  # посчитать длину списка с фразами
     dic_df = {}  # создать пустой именованный массив
-    print('Этап I/III')  # вывести этап работы
+    print('Этап I/IV')  # вывести этап работы
     for phrase in phrases:  # для каждой фразы из списка фраз
         print(f'\r{round(phrases.index(phrase) / length * 100, 2)}%', end='')  # вывести процент обработанных фраз
         buffer_df = df.loc[df['PHRASES'] == phrase]  # создать DataFrame с url
-        dic_df[phrase] = buffer_df['URL'].to_list()  # добавить запись в словаря, где ключ – фраза, а значени – адреса
+        dic_df[phrase] = buffer_df['URL'].to_list()  # добавить запись в словарь, где ключ – фраза, а значения – адреса
 
     final_df = pd.DataFrame(columns=columns)  # пустой финальный DataFrame
     group_num = 1  # начальное значение группы
 
-    print('\nЭтап II/III')  # вывод информации о начале второго этапа работы над файлом
+    print('\nЭтап II/IV')  # вывод информации о начале второго этапа работы над файлом
     for i in range(len(phrases)):  # для каждой фразы в списке фраз
         print(f'\r{round(i / length * 100, 2)}%', end='')  # вывести процент отработанных фраз
         init_phrase = phrases[i]  # определить значение начальной фразы
@@ -49,7 +49,7 @@ def group(phrases):
                         if len(intersection_stage_II) >= N:  # если количество таких пересеченй не меньше N
                             current_intersection = intersection_stage_II  # присвоить этому списку, полученный список
                         else:  # иначе пропустить
-                            continue  # начать цикл заново
+                            continue  # и начать цикл заново
 
                     count_main = count_main_urls(current_intersection)  # посчитать главные страницы
                     if first_pass_indicator:  # если это первый проход, то
@@ -83,39 +83,50 @@ def group(phrases):
 
 
 def filtration(df):
-    while True:
-        columns = list(df.columns)  # список с именами колонок
-        final = pd.DataFrame(columns=columns)  # пустной финальный DataFrame
-        groups = sorted(set(df['GROUP'].to_list()))  # список всех групп
-        length = len(groups) - 1  # длина списка с группами - 1, для вывода процентов статус-бара ниже
-        print('Этап III/III')  # вывести этап работы
-        for index, group in enumerate(groups):  # для каждой группы из списка групп
-            print(f'\r{round(index / length * 100, 2)}%', end='')  # вывести процент обработанных групп
-            df_group = df.loc[df['GROUP'] == group]  # dataFrame по группе
-            if groups[index] == groups[-1]:  # если это последняя группа, то
-                break  # прекратить цикл
+    reduced_df = df.loc[:, 'PHRASES':'GROUP']  # сокращение размеров DataFrame
+    groups = list(sorted(set(reduced_df['GROUP'].to_list())))  # список всех групп
+    length = len(groups)  # длина списка с группами, нужна для статус-бара
+    group_phrase_dir = {}  # пустой словаря, где ключи – группы, а значениея – список фраз
+    valid_groups = []  # список, где будут сохраняться группы без повторений
 
-            phrases_group = df_group['PHRASES'].to_list()  # список фрах из df_group
-            for next_group in groups[index + 1:]:  # для каждой группы из списка групп, за исключением уже используемой
-                df_next_group = df.loc[df['GROUP'] == next_group]  # dataFrame по группе
-                phrases_next_group = df_next_group['PHRASES'].to_list()  # список фрах из df_next_group
-                intersection = list(set(phrases_group) & set(phrases_next_group))  # перечечение списков с фразами
-                if intersection == phrases_group:  # если пересечение фраз равно спичку во внешнем цикле for, то
-                    final.append(phrases_next_group)  # то добавить внутренний список в финальный DataFrame
-                    break  # и завершить врутренний цикл for, чтобы перейти к следующей группе
-                elif intersection == phrases_next_group:  # если пересечение равно спичку во внутреннем цикле for, то
-                    final.append(phrases_group) # то добавить внешний список в финальный DataFrame
-                    break # и завершить врутренний цикл for, чтобы перейти к следующей группе
-                else:
-                    continue # если перечечений нет, то продолжить внутренний цикл
+    print('Этап III/IV')  # вывести этап работы
+    # цикл для заполнения group_phrase_dir
+    for index, group in enumerate(groups):  # для каждой фразы и ее индекса в списке групп
+        print(f'\r{round(index / (length - 1) * 100, 2)}%', end='')  # вывести процент обработанных групп и записать
+        group_phrase_dir[group] = reduced_df.loc[df['GROUP'] == group]['PHRASES'].to_list()  # в group_phrase_dir
 
-        if len(final_df) == 0: # если после прохода циклов финальный фрэйм будет пустой, то
-            break # заверншить бесконечный цикл
-        else: # еслифинальный цикл не пустой, то повротить цикл заново,для повторной проверки перечечения
-            df = final # присвоить исходному фрэйму финальный
-            continue # и продолжить цикл
+    print('\nЭтап IV/IV')  # вывести этап работы
+    # цикл, определяющий группы, фразы в которых НЕ содержаться в других группах. Эти группы помещаются в valid_groups
+    index = 0  # начальный индекс
+    while True:  # бесконечный цикл
+        length = len(groups)  # длина списка с группами, нужна для статус-бара
+        print(f'\r{round(index / (length - 1) * 100, 2)}%', end='')  # вывести процент обработанных групп
+        if index == length - 1:  # если индекс последней группы в списке групп то
+            break  # завешить цикл
 
-    return df
+        group = groups[index]  # основная рабочая группа
+        phrases = group_phrase_dir[group]  # фразы основной рабочей группы
+
+        # цикл для перебора и сравнения фраз последующих групп с фразами основной группы
+        for next_group in groups[index + 1:]:  # для каждой следующей группы
+            phrases_next = group_phrase_dir[next_group]  # определить фразы этой группы
+            intersection = list(set(phrases) & set(phrases_next))  # перечечение списков для основной и текущей группы
+            if intersection == phrases:  # если пересечение фраз равно списку фраз для основной группы, то
+                groups.remove(group)  # удалить из списка групп номер основной группы
+                group = next_group  # и присвоить ему заначение текущей группы
+            elif intersection == phrases_next:  # если пересечение фраз равно списку фраз для текущей группы, то
+                groups.remove(next_group)  # удалить из списка групп номер текущей группы
+            else:  # если перечечений нет, то
+                continue  # продолжить цикл с новой текущей группой
+        else:  # по завершению цикла проверить
+            if group == groups[index]:  # если True, то эта группа уникальна и она не была удалена из списка групп
+                valid_groups.append(group)  # добавить номер группы в valid_groups
+                index += 1  # увеличить счетчик цикла и перезапустить цикл с новой основной группой
+            else:  # если эта группа содержалась в другой группе, то она была удалена и под этим индексом будет
+                # уже другая группа, значить индекс увеличивать  е нужно
+                valid_groups.append(group)  # добавить номер группы в valid_groups
+
+    return df[df['GROUP'].isin(valid_groups)]  # вернуть новый DataFrame, содержащий только уникальные группы
 
 
 def save_rest(init_df, final_df, phrases, result_dir, file_dir):
@@ -140,7 +151,7 @@ if __name__ == '__main__':
         print(f'\nРабота с файлом {file}')  # вывести имя файла
         df = pd.read_csv(file, sep=';')  # создать DataFrame
         phrases = list(sorted(set(df['PHRASES'].to_list())))  # получить список фраз
-        final_df = group(phrases)  # групировка фраз и создание final_df
+        final_df = group(phrases, df)  # групировка фраз и создание final_df
 
         file_dir = file[:-4]  # по сути, это имя файла без расширения
         if not os.path.exists(f'{result_dir}/{file_dir}'):  # если данная дирректория не существует,
@@ -150,7 +161,8 @@ if __name__ == '__main__':
         save_rest(df, final_df, phrases, result_dir, file_dir)  # сохранение несгрупированных фраз в отделный файл
 
         final_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_grouped.csv', sep=';', index=False)  # запись в файл
-        final_df = filtration(final_df)
-        final_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_grouped.csv', sep=';', index=False)  # запись в файл
+
+        final_df = filtration(final_df) # вызов функции по удалению групп, содержащихся в других группах
+        final_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_filtered.csv', sep=';', index=False)  # запись в файл
 
     print('\nDONE!')
