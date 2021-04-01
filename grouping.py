@@ -15,69 +15,62 @@ def count_main_urls(iter):
     return count
 
 
-def group(phrases, df):
+def group(df):
+    phrases = list(sorted(set(df['PHRASES'].to_list())))  # получить список фраз
     length = len(phrases)  # посчитать длину списка с фразами
-    dic_df = {}  # создать пустой именованный массив
+    url_dict = {}  # создать пустой именованный массив, в котором ключ – фраза, а значения – адреса
     print('Этап I/IV')  # вывести этап работы
-    for phrase in phrases:  # для каждой фразы из списка фраз
-        print(f'\r{round(phrases.index(phrase) / length * 100, 2)}%', end='')  # вывести процент обработанных фраз
+    for index, phrase in enumerate(phrases):  # для каждой фразы и ее индекса в списке групп
+        print(f'\r{round(index / (length - 1) * 100, 2)}%', end='')  # вывести процент обработанных групп и записать
         buffer_df = df.loc[df['PHRASES'] == phrase]  # создать DataFrame с url
-        dic_df[phrase] = buffer_df['URL'].to_list()  # добавить запись в словарь, где ключ – фраза, а значения – адреса
+        url_dict[phrase] = buffer_df['URL'].to_list()  # добавить запись в словарь
 
-    final_df = pd.DataFrame(columns=columns)  # пустой финальный DataFrame
+    final_df = pd.DataFrame()  # пустой финальный DataFrame
     group_num = 1  # начальное значение группы
 
     print('\nЭтап II/IV')  # вывод информации о начале второго этапа работы над файлом
     for i in range(len(phrases)):  # для каждой фразы в списке фраз
-        print(f'\r{round(i / length * 100, 2)}%', end='')  # вывести процент отработанных фраз
-        init_phrase = phrases[i]  # определить значение начальной фразы
-        buffer_list = []  # создать пустой буфферный лист
-        first_pass_indicator = True  # индикация первого прохода
-        current_intersection = []  # список для хранения совпадающих адресов
+        print(f'\r{round(i / (length - 1) * 100, 2)}%', end='')  # вывести процент отработанных фраз
+        if i == length - 1:  # если индекс последней группы в списке групп то
+            break  # завешить цикл
+
+        main_phrase = phrases[i]  # определить значение начальной фразы
+        main_urls = url_dict[main_phrase]  # получить список адресов начальной init_phrase
+        intersection = main_urls  # и сделать этот список списком начального перечения
         min_count_main = 0  # минимальное количество главных страниц
-        try:  # обработка исключения ошибки несуществующего индекса. Должен срабатывать на последней фразе
-            for target_phrase in phrases[i + 1:]:  # для каждой фразы в списке фраз без init_phrase
-                # print(target_phrase) # вывести фразу
-                urls_init = dic_df[init_phrase]  # получить список адресов фразы init_phrase
-                urls_target = dic_df[target_phrase]  # получить список адресов target_phrase
-                intersection_stage_I = list(set(urls_init) & set(urls_target))  # найти перечечение списков этих фраз
-                if len(intersection_stage_I) >= N:  # если количество перечечений больше ли равно N, то
-                    if not current_intersection:  # проверить пуст ли список совпадающих адресов. Если он пуст, то
-                        current_intersection = intersection_stage_I  # присвоить этому списку, полученный список
-                    else:  # если список совпадающих адресов не пустой, то найти пересечение с ним полученого списка
-                        intersection_stage_II = list(set(current_intersection) & set(intersection_stage_I))
-                        if len(intersection_stage_II) >= N:  # если количество таких пересеченй не меньше N
-                            current_intersection = intersection_stage_II  # присвоить этому списку, полученный список
-                        else:  # иначе пропустить
-                            continue  # и начать цикл заново
+        grouped_phrases = []  # список фраз имеющих одну группу
 
-                    count_main = count_main_urls(current_intersection)  # посчитать главные страницы
-                    if first_pass_indicator:  # если это первый проход, то
-                        min_count_main = count_main  # указать что count_main минимально
-                        buffer_list.append([init_phrase, group_num])  # добавить первую фразу
-                        buffer_list.append([target_phrase, group_num])  # и вторую
-                        first_pass_indicator = False  # отметить, что первый проход был осуществлен
-                    else:  # если первый проход уже был, то
-                        if count_main < min_count_main:  # если новое значение count_main меньше минимального
-                            min_count_main = count_main  # задать новое значение min_count_main
-                        buffer_list.append([target_phrase, group_num])  # добавить только вторую фразу
-                else:  # если количество перечечений меньше N, то
-                    continue  # начать цикл заново
-            else:
-                if len(buffer_list) == 0:  # если проход по фразе не встретил перечечений ни с одной другой фразой, то
-                    continue  # начать цикл заново
-                else:
-                    buffer_df = pd.DataFrame(buffer_list, columns=['PHRASES', 'GROUP'])  # создать буферный DataFrame
-                    buffer_df['MAIN_PAGE_COUNT'] = None  # добавление в DataFrame столбца 'MAIN_PAGE_COUNT'
-                    buffer_df['URLS'] = None  # добавление в DataFrame столбца 'URLS'
-                    for index in buffer_df.index:  # для каждой строки
-                        buffer_df.at[index, 'MAIN_PAGE_COUNT'] = min_count_main  # задать значение главных страниц
-                        buffer_df.at[index, 'URLS'] = current_intersection  # записать список с пересечениями
-                    final_df = final_df.append(buffer_df)  # моместить в финальный dataFrame
-                    group_num += 1  # увеличить группу на 1
+        for current_phrase in phrases[i + 1:]:  # для каждой фразы в списке фраз, не включающий предидущие фразы
+            # print(target_phrase) # вывести фразу
+            current_urls = url_dict[current_phrase]  # получить список адресов target_phrase
+            new_intersection = list(set(intersection) & set(current_urls))  # найти пересечение адресов двух фраз
+            if len(new_intersection) >= N:  # если количество пересечений больше или равно N
+                grouped_phrases.append(current_phrase)  # то добавить фразу в список фраз одной группы
+                intersection = new_intersection  # присвоить списку с пересечениями новое значение
+            else:  # если количество перечечений меньше N, то
+                continue  # начать цикл заново
+        else:
+            if len(grouped_phrases) == 0:  # если проход по фразе не встретил перечечений ни с одной другой фразой, то
+                continue  # начать цикл заново перейдя к новой начальной фразе
+            elif len(final_df):
+                urls = final_df['URLS'].to_list()  # список всех адресов в final_df
+                if intersection in urls:  # если список с пересекающимися адресами есть в списке с адресами из final_df
+                    continue # то перезапустить цикл
 
-        except IndexError:  # если проход по посленей фразе, то завершить цикл
-            break
+            grouped_phrases.append(main_phrase)  # добавить начальную фразу
+            main_page_count = count_main_urls(intersection)  # посчитать количество главных страниц
+            final_dict = {
+                'PHRASES': grouped_phrases,
+                'GROUP': [group_num for phrase in grouped_phrases],
+                'MAIN_PAGE_COUNT': [main_page_count for phrase in grouped_phrases],
+                'URLS': [intersection for phrase in grouped_phrases]
+            }
+            # print(final_dict)
+            if final_df.empty:  # если финальный DataFrame имеет тип None
+                final_df = pd.DataFrame(final_dict)  # создать его структору с final_dict
+            else:  # если финальный DataFrame не пустой, то
+                final_df = final_df.append(pd.DataFrame(final_dict))  # добавить в него dataFrame с final_dict
+            group_num += 1  # увеличить группу на 1
 
     return final_df
 
@@ -150,14 +143,14 @@ if __name__ == '__main__':
     for file in csv_files:  # для каждого файла в списке
         print(f'\nРабота с файлом {file}')  # вывести имя файла
         df = pd.read_csv(file, sep=';')  # создать DataFrame
-        phrases = list(sorted(set(df['PHRASES'].to_list())))  # получить список фраз
-        final_df = group(phrases, df)  # групировка фраз и создание final_df
+        final_df = group(df)  # групировка фраз и создание final_df
 
         file_dir = file[:-4]  # по сути, это имя файла без расширения
         if not os.path.exists(f'{result_dir}/{file_dir}'):  # если данная дирректория не существует,
             os.mkdir(f'{result_dir}/{file_dir}')  # то ее необходимо создать
 
         final_df = final_df.reset_index(drop=True)  # реиндексирование
+        phrases = list(sorted(set(df['PHRASES'].to_list())))  # получить список фраз из начального dataFrame
         save_rest(df, final_df, phrases, result_dir, file_dir)  # сохранение несгрупированных фраз в отделный файл
 
         final_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_grouped.csv', sep=';', index=False)  # запись в файл
