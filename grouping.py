@@ -63,7 +63,7 @@ def group(df):
                 'PHRASES': grouped_phrases,
                 'GROUP': [group_num for phrase in grouped_phrases],
                 'MAIN_PAGE_COUNT': [main_page_count for phrase in grouped_phrases],
-                'URLS': [intersection for phrase in grouped_phrases]
+                'URLS': [', '.join(intersection) for phrase in grouped_phrases]
             }
             # print(final_dict)
             if final_df.empty:  # если финальный DataFrame имеет тип None
@@ -84,9 +84,9 @@ def filtration(df):
 
     print('Этап III/IV')  # вывести этап работы
     # цикл для заполнения group_phrase_dir
-    for index, group in enumerate(groups):  # для каждой фразы и ее индекса в списке групп
+    for index, group in enumerate(groups):  # для каждой группы и ее индекса в списке групп
         print(f'\r{round(index / (length - 1) * 100, 2)}%', end='')  # вывести процент обработанных групп и записать
-        group_phrase_dir[group] = reduced_df.loc[df['GROUP'] == group]['PHRASES'].to_list()  # в group_phrase_dir
+        group_phrase_dir[group] = reduced_df.loc[reduced_df['GROUP'] == group]['PHRASES'].to_list()  # в group_phrase_dir
 
     print('\nЭтап IV/IV')  # вывести этап работы
     # цикл, определяющий группы, фразы в которых НЕ содержаться в других группах. Эти группы помещаются в valid_groups
@@ -134,7 +134,6 @@ if __name__ == '__main__':
     dir = os.getcwd()  # вернуть текущую папку
     csv_files = [file for file in os.listdir(dir) if file.endswith(".csv")]  # список всех .csv файлов
     result_dir = 'RESULT'  # папка для сохранения результатов
-    columns = ['PHRASES', 'GROUP', 'MAIN_PAGE_COUNT', 'URLS']  # список с названиями колонок
     N = int(input('Укажите количество пересечений N: '))  # запрос у пользователя количества пересечений для поиска
     if not os.path.exists(result_dir):  # если данная дирректория не существует,
         os.mkdir(result_dir)  # то ее необходимо создать
