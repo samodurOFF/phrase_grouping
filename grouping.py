@@ -63,7 +63,7 @@ def group(df):
                 'PHRASES': grouped_phrases,
                 'GROUP': [group_num for phrase in grouped_phrases],
                 'MAIN_PAGE_COUNT': [main_page_count for phrase in grouped_phrases],
-                'URLS': [', '.join(intersection) for phrase in grouped_phrases]
+                'URLS': [intersection for phrase in grouped_phrases]
             }
             # print(final_dict)
             if final_df.empty:  # если финальный DataFrame имеет тип None
