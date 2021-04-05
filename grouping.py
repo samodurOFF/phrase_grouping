@@ -47,7 +47,7 @@ def ratio(main_dict, grouped_phrases, grouped_urls, group_number, type_ratio):
                 r_i = len(urls)  # длина DataFrame по фразе
                 for s_i_j, url in enumerate(urls, start=1):  # для каждого ранга, адреса в списке адресов из df_phrase
                     if grouped_url == url:  # если адрес из сгруппированного списка совпадает с адресом из исходника
-                        l_i = s_i_j / r_i + l_i  # посчитать промежуточный коэффициент
+                        l_i = s_i_j / r_i + l_i  # посчитать промежуточный коэффициент итогового ранжирования
             else:
                 ratio_dict['GROUP'].append(group_number)  # добавление номера группы в финальный словарь
                 ratio_dict['URL'].append(grouped_url)  # добавление адреса в финальный словарь
@@ -57,16 +57,16 @@ def ratio(main_dict, grouped_phrases, grouped_urls, group_number, type_ratio):
     else:
         ratio_dict = {'GROUP': [], 'URL': [], 'C_V': [], 'V_R': [], 'C_V * V_R': []}  # финальный словарь
         for grouped_url in grouped_urls:  # для каждого сгруппированного адреса из списка сгруппированных адресов
-            values_list = []  # список со значеними
-            for phrase in grouped_phrases:
-                urls = main_dict[phrase]  # списох адресов для конкретной фразы из исходного файла
-                for index, url in enumerate(urls, start=1):  # для каждого ранга, адреса в списке адресов из df_phrase
+            values_list = []  # создать список со значеними индекса этих адресов
+            for phrase in grouped_phrases:  # для каждой сгруппированной фразы из списка сгруппированных адресов
+                urls = main_dict[phrase]  # получить список адресов для конкретной фразы из исходного файла
+                for index, url in enumerate(urls, start=1):  # для каждого индекса, адреса в списке исходных адресов
                     if grouped_url == url:  # если адрес из сгруппированного списка совпадает с адресом из исходника
                         values_list.append(index)  # добавить индекс этого адреса в список
-            else:
-                avr = mean(values_list)  # среднее
-                c_v = std(values_list) / avr  # вариация
-                v_r = (max(values_list) - min(values_list)) / avr  # осцилляция
+            else:  # после цикла
+                avr = mean(values_list)  # получить среднее
+                c_v = std(values_list) / avr  # получить вариацию
+                v_r = (max(values_list) - 1) / avr  # НЕ осцилляция
                 ratio_dict['GROUP'].append(group_number)  # добавление номера группы в финальный словарь
                 ratio_dict['URL'].append(grouped_url)  # добавление адреса в финальный словарь
                 ratio_dict['C_V'].append(c_v)  # добавление коэффициента вариации в финальный словарь
@@ -212,7 +212,7 @@ if __name__ == '__main__':
     N = int(input('Укажите количество пересечений N: '))  # запрос у пользователя количества пересечений для поиска
     type_ratio = int(input('Укажите способ определения значимости адреса:\n'
                            '1 – через коэффициент итогового ранжирования (быстро),\n'
-                           '2 – через коэффициенты варианции и осцилляции (медленно).\n'
+                           '2 – через коэффициенты вариации (медленно).\n'
                            'Ответ: '))  # запрос у пользователя способа определения веса адреса
     if not os.path.exists(result_dir):  # если данная дирректория не существует,
         os.mkdir(result_dir)  # то ее необходимо создать
