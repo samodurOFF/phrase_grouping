@@ -211,7 +211,7 @@ def save_rest(init_df, final_df, phrases, result_dir, file_dir):
 if __name__ == '__main__':
     dir = os.getcwd()  # вернуть текущую папку
     csv_files = [file for file in os.listdir(dir) if file.endswith(".csv")]  # список всех .csv файлов
-    with open('ignored_domains.txt', 'r') as file:
+    with open('ignored_domains.txt', 'r', encoding='utf-8') as file:
         ignored_list = file.read().splitlines()  # список игнорируемых доменов
 
     result_dir = 'RESULT'  # папка для сохранения результатов
