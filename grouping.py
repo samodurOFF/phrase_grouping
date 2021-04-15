@@ -79,22 +79,24 @@ def ratio(main_dict, grouped_phrases, grouped_urls, group_number, type_ratio):
 def group(df):
     phrases = list(sorted(set(df['PHRASES'].to_list())))  # получить список фраз
     length = len(phrases)  # посчитать длину списка с фразами
-    url_dict = {}  # создать пустой именованный массив, в котором ключ – фраза, а значения – адреса
+    all_urls = {}  # пустой словарь, в котором ключ – фраза, а значения –  ВСЕ адреса для этой фразы
+    ignored_urls = {}  # пустой словарь, в котором ключ – фраза, а значения – адреса, за исключением игнорируемых
     print('Этап I/II')  # вывести этап работы
-    for index, phrase in enumerate(phrases):  # для каждой фразы и ее индекса в списке групп
+    for index, phrase in enumerate(phrases):  # для каждой фразы и ее индекса в списке фраз
         print(f'\r{round(index / (length - 1) * 100, 2)}%', end='')  # вывести процент обработанных групп и записать
         buffer_df = df.loc[df['PHRASES'] == phrase]  # создать DataFrame по фразе
-        url_list = buffer_df['URL'].to_list()  # список адресов для текущей фразе
+        url_list = buffer_df['URL'].to_list()  # список адресов для текущей фразы
+        all_urls[phrase] = url_list.copy()  # добавить в словарь список всех адресов по фразе
         for domain in ignored_list:  # для каждого игнорируемого домена из списка игнорируемых доменов
             index = 0  # задать счетчик цикла равным 0
-            while index != len(url_list):  # прекритить уикл как только индекс превысит значение длины списка с адресами
-                url = url_list[index] # проверяемый адрес
+            while index != len(url_list):  # прекратить цикл как только индекс превысит значение длины списка с адресами
+                url = url_list[index]  # проверяемый адрес
                 if domain == url:  # если игнорируемый домен совпадает с адресом, то
                     url_list.pop(index)  # удалить этот адрес из списка адресов
-                else: # если не присутствует, то перейти к следующему адресу
-                    index += 1 # и увеличить индекс на 1
-
-        url_dict[phrase] = url_list  # добавить в словарь список адресов по фразе
+                else:  # если не присутствует, то перейти к следующему адресу
+                    index += 1  # и увеличить индекс на 1
+        else:
+            ignored_urls[phrase] = url_list  # добавить в словарь список адресов по фразе, кроме игнорируемых
 
     final_df = pd.DataFrame()  # пустой финальный DataFrame для сгруппированных данных
     ratio_df = pd.DataFrame()  # пустой финальный DataFrame для с данными коэффициентов
@@ -108,13 +110,13 @@ def group(df):
             break  # завершить цикл
 
         main_phrase = phrases[i]  # определить значение начальной фразы
-        main_urls = url_dict[main_phrase]  # получить список адресов начальной init_phrase
+        main_urls = ignored_urls[main_phrase]  # получить список адресов начальной init_phrase
         intersection = main_urls  # и сделать этот список списком начального перечения
-        grouped_phrases = []  # список фраз имеющих одну группу
+        grouped_phrases = []  # список фраз, имеющих одну группу
 
         for current_phrase in phrases[i + 1:]:  # для каждой фразы в списке фраз, не включающий предидущие фразы
             # print(target_phrase) # вывести фразу
-            current_urls = url_dict[current_phrase]  # получить список адресов target_phrase
+            current_urls = ignored_urls[current_phrase]  # получить список адресов target_phrase
             new_intersection = list(set(intersection) & set(current_urls))  # найти пересечение адресов двух фраз
             if len(new_intersection) >= N:  # если количество пересечений больше или равно N
                 grouped_phrases.append(current_phrase)  # то добавить фразу в список фраз одной группы
@@ -129,8 +131,8 @@ def group(df):
                 # фраз другой группы, то
                 continue  # начать цикл заново, перейдя к новой начальной фразе
             else:  # если данный список с фразами НЕ содержиться в списке фраз другой группы, то
-                ratio_dict = ratio(url_dict, grouped_phrases, intersection, group_num, type_ratio)  # коэффициенты
-                ratio_df = ratio_df.append(pd.DataFrame(ratio_dict))  # добавить с итоговый DataFrame
+                ratio_dict = ratio(all_urls, grouped_phrases, intersection, group_num, type_ratio)  # коэффициенты
+                ratio_df = ratio_df.append(pd.DataFrame(ratio_dict))  # добавить в итоговый DataFrame
                 group_phrase_dict[group_num] = grouped_phrases  # дабавить список фраз к ключу с группой этой фразы
                 main_page_count = count_main_urls(intersection)  # посчитать количество главных страниц
                 # создать final_dict со следующей структурой
