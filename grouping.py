@@ -200,11 +200,11 @@ def filtration(df):
     return df[df['GROUP'].isin(valid_groups)]  # вернуть новый DataFrame, содержащий только уникальные группы
 
 
-def save_rest(init_df, final_df, phrases, result_dir, file_dir):
+def save_rest(init_df, final_df, phrases, result_dir, file_dir, N, ignoring):
     phrases_after = sorted(set(final_df['PHRASES'].to_list()))  # все сгруппированные фразы
     diff_list = list(set(phrases) - set(phrases_after))  # фразы, которые не были сгруппированы
     diff_df = init_df[init_df['PHRASES'].isin(diff_list)]  # сортирвоака по несгруппированным фразам
-    diff_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_rest.csv', sep=';', index=False)  # запись в файл
+    diff_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_(N = {N}){ignoring}_rest.csv', sep=';', index=False)  # запись
     # print(f'\nФайл с несгрупированными фразами сохранен')
 
 
@@ -220,6 +220,16 @@ if __name__ == '__main__':
                            '1 – через коэффициент итогового ранжирования (быстро),\n'
                            '2 – через коэффициенты вариации (медленно).\n'
                            'Ответ: '))  # запрос у пользователя способа определения веса адреса
+    ignoring = input('Игнорировать домены, указанные в ignored_domains.txt (y/n)?\n'
+                     'Ответ: ')  # запрос у пользователя на игнорирование доменов
+    if ignoring == 'y':  # если ответ пользователя разрешает игнорирование, то
+        ignoring = '_ignored'  # присваеваем ignoring новое занчение, которое понадобиться для названия файла
+        print('Игнорирование включено!')  # выводим, что игнорирование разрешено
+    else:  # если пользоватлеь запрелит игнорирование
+        ignored_list.clear()  # то список с игнорироемыми доменами очищается
+        ignoring = ''  # присваеваем ignoring новое занчение, которое понадобиться для названия файла
+        print('Игнорирование отключено!')  # # выводим, что игнорирование отключено
+
     if not os.path.exists(result_dir):  # если данная дирректория не существует,
         os.mkdir(result_dir)  # то ее необходимо создать
 
@@ -229,16 +239,20 @@ if __name__ == '__main__':
         df = pd.read_csv(file, sep=';')  # создать DataFrame
         final_df, ratio_df = group(df)  # групировка фраз и создание final_df
 
-        file_dir = file[:-4]  # по сути, это имя файла без расширения
+        file_dir = file[:-4]  # имя папки внутри папки result_dir
+        file_name = f'{file_dir}_(N = {N}){ignoring}'  # имя сохраняемого файла
         if not os.path.exists(f'{result_dir}/{file_dir}'):  # если данная дирректория не существует,
             os.mkdir(f'{result_dir}/{file_dir}')  # то ее необходимо создать
 
         final_df = final_df.reset_index(drop=True)  # реиндексирование
         phrases = list(sorted(set(df['PHRASES'].to_list())))  # получить список фраз из начального dataFrame
-        save_rest(df, final_df, phrases, result_dir, file_dir)  # сохранение несгрупированных фраз в отделный файл
+        save_rest(df, final_df, phrases, result_dir, file_dir, N, ignoring)  # сохранение несгрупированных фраз в
+        # отделный
+        # файл
 
-        final_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_grouped.csv', sep=';', index=False)  # запись в файл
-        ratio_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_coefficients.csv', sep=';', index=False)  # запись в файл
+        final_df.to_csv(f'{result_dir}/{file_dir}/{file_name}_grouped.csv', sep=';', index=False)  # запись в
+        # файл
+        ratio_df.to_csv(f'{result_dir}/{file_dir}/{file_name}_coefficients.csv', sep=';', index=False)  # запись в файл
 
         # final_df = filtration(final_df)  # вызов функции по удалению групп, содержащихся в других группах
         # final_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_filtered.csv', sep=';', index=False)  # запись в файл
