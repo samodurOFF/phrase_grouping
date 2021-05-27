@@ -1,4 +1,5 @@
 import os
+
 import pandas as pd
 from numpy import std, mean
 
@@ -36,8 +37,8 @@ def check_phrase(grouped_phrases, group_phrase_dict):
     return True  # если был break
 
 
-def ratio(main_dict, grouped_phrases, grouped_urls, group_number, type_ratio):
-    if type_ratio == 1:  # если type_ratio раен 1 или не задан, то считаем l коэффициент
+def ratio(main_dict, grouped_phrases, grouped_urls, group_number, type_ratio=1):
+    if type_ratio == 1:  # если type_ratio равен 1 или не задан, то считаем l коэффициент
         n = len(grouped_phrases)  # количество фраз в группе
         ratio_dict = {'GROUP': [], 'URL': [], 'L_RATIO': []}  # финальный словарь
         for grouped_url in grouped_urls:  # для каждого сгруппированного адреса из списка сгруппированных адресов
@@ -53,8 +54,8 @@ def ratio(main_dict, grouped_phrases, grouped_urls, group_number, type_ratio):
                 ratio_dict['URL'].append(grouped_url)  # добавление адреса в финальный словарь
                 ratio_dict['L_RATIO'].append(l_i / n)  # добавление коэффициента в финальный словарь
         else:
-            return ratio_dict
-    else:
+            return pd.DataFrame(ratio_dict).sort_values('L_RATIO', ascending=True)
+    elif type_ratio == 2:  # если type_ratio равен 2, то считаем коэффициент вариации и прочее
         ratio_dict = {'GROUP': [], 'URL': [], 'C_V': [], 'V_R': [], 'C_V * V_R': []}  # финальный словарь
         for grouped_url in grouped_urls:  # для каждого сгруппированного адреса из списка сгруппированных адресов
             values_list = []  # создать список со значеними индекса этих адресов
@@ -73,15 +74,43 @@ def ratio(main_dict, grouped_phrases, grouped_urls, group_number, type_ratio):
                 ratio_dict['V_R'].append(v_r)  # добавление коэффициента осцилляции в финальный словарь
                 ratio_dict['C_V * V_R'].append(c_v * v_r)  # добавление произведения c_v * v_r
         else:
-            return ratio_dict
+            return pd.DataFrame(ratio_dict).sort_values('C_V * V_R', ascending=True)
+    else:  # если type_ratio равен 3, то считаем все коэффициенты
+        l_ratio = ratio(main_dict, grouped_phrases, grouped_urls, group_number, 1)['L_RATIO']  # используем эту функцию
+        ratio_dict = ratio(main_dict, grouped_phrases, grouped_urls, group_number, 2)  # используем эту функцию еще раз
+        ratio_dict['L_RATIO'] = l_ratio  # добавляем данные по новому ключу
+        return pd.DataFrame(ratio_dict).sort_values('L_RATIO', ascending=True)
 
 
-def group(df):
+def get_group_name(grouped_phrases):
+    """
+    Функция для генерации имени для группы
+
+    :param grouped_phrases:
+    :return:
+    """
+    all_words = []  # список, куда будут помещаться все слова всех фраз группы
+    for phrase in grouped_phrases:  # для каждой фразы из группы
+        all_words.extend(phrase.split(' '))  # разделить на слова и поместить в список
+
+    freq_dict = {}  # словарь, где ключи – слова, а значения – частоты их употребления во всех словах группы
+    all_words_uniq = sorted(set(all_words))  # уникальные слова всех фраз, отсортированные по убыванию
+    for word in all_words_uniq:  # для каждой фразы в списке фраз
+        freq_dict[word] = all_words.count(word)  # записать в словарь частоту встречаемости этой фразы
+
+    sorted_words = sorted(freq_dict, key=freq_dict.get,
+                          reverse=True)  # список слов, значения которых упорядочены по убыванию
+
+    group_name = ' '.join([str(i) for i in sorted_words])  # обдъединение ключей в имя группы
+    return group_name
+
+
+def group(df, ignoring_type=None):
     phrases = list(sorted(set(df['PHRASES'].to_list())))  # получить список фраз
     length = len(phrases)  # посчитать длину списка с фразами
     all_urls = {}  # пустой словарь, в котором ключ – фраза, а значения –  ВСЕ адреса для этой фразы
     ignored_urls = {}  # пустой словарь, в котором ключ – фраза, а значения – адреса, за исключением игнорируемых
-    print('Этап I/II')  # вывести этап работы
+    print('Этап I/III')  # вывести этап работы
     for index, phrase in enumerate(phrases):  # для каждой фразы и ее индекса в списке фраз
         print(f'\r{round(index / (length - 1) * 100, 2)}%', end='')  # вывести процент обработанных групп и записать
         buffer_df = df.loc[df['PHRASES'] == phrase]  # создать DataFrame по фразе
@@ -91,19 +120,25 @@ def group(df):
             index = 0  # задать счетчик цикла равным 0
             while index != len(url_list):  # прекратить цикл как только индекс превысит значение длины списка с адресами
                 url = url_list[index]  # проверяемый адрес
-                if domain == url:  # если игнорируемый домен совпадает с адресом, то
-                    url_list.pop(index)  # удалить этот адрес из списка адресов
-                else:  # если не присутствует, то перейти к следующему адресу
-                    index += 1  # и увеличить индекс на 1
+                if ignoring_type == 1:  # если тип игнорирования выставлен на полное совпадения или не задан, то
+                    if domain == url:  # если игнорируемый домен совпадает с адресом, то
+                        url_list.pop(index)  # удалить этот адрес из списка адресов
+                    else:  # если не присутствует, то перейти к следующему адресу
+                        index += 1  # и увеличить индекс на 1
+                else:
+                    if domain in url:  # если игнорируемый домен присутствует в адресе
+                        url_list.pop(index)  # удалить этот адрес из списка адресов
+                    else:  # если не присутствует, то перейти к следующему адресу
+                        index += 1  # и увеличить индекс на 1
         else:
             ignored_urls[phrase] = url_list  # добавить в словарь список адресов по фразе, кроме игнорируемых
 
     final_df = pd.DataFrame()  # пустой финальный DataFrame для сгруппированных данных
     ratio_df = pd.DataFrame()  # пустой финальный DataFrame для с данными коэффициентов
     group_num = 1  # начальное значение группы
-    group_phrase_dict = {}  # пустой словаря, где ключи – группы, а значениея – список фраз
+    group_phrase_dict = {}  # пустой словарь, где ключи – группы, а значениея – список фраз
 
-    print('\nЭтап II/II')  # вывод информации о начале второго этапа работы над файлом
+    print('\nЭтап II/III')  # вывод информации о начале второго этапа работы над файлом
     for i in range(len(phrases)):  # для каждой фразы в списке фраз
         print(f'\r{round(i / (length - 1) * 100, 2)}%', end='')  # вывести процент отработанных фраз
         if i == length - 1:  # если индекс последней группы в списке групп то
@@ -131,14 +166,16 @@ def group(df):
                 # фраз другой группы, то
                 continue  # начать цикл заново, перейдя к новой начальной фразе
             else:  # если данный список с фразами НЕ содержиться в списке фраз другой группы, то
-                ratio_dict = ratio(all_urls, grouped_phrases, intersection, group_num, type_ratio)  # коэффициенты
-                ratio_df = ratio_df.append(pd.DataFrame(ratio_dict))  # добавить в итоговый DataFrame
+                ratio_frame = ratio(all_urls, grouped_phrases, intersection, group_num, type_ratio)  # коэффициенты
+                ratio_df = ratio_df.append(ratio_frame)  # добавить в итоговый DataFrame
                 group_phrase_dict[group_num] = grouped_phrases  # дабавить список фраз к ключу с группой этой фразы
+                group_name = get_group_name(grouped_phrases)
                 main_page_count = count_main_urls(intersection)  # посчитать количество главных страниц
                 # создать final_dict со следующей структурой
                 final_dict = {
                     'PHRASES': grouped_phrases,
                     'GROUP': [group_num for phrase in grouped_phrases],
+                    'GROUP_NAME': [group_name for phrase in grouped_phrases],
                     'MAIN_PAGE_COUNT': [main_page_count for phrase in grouped_phrases],
                     'URLS': [', '.join(intersection) for phrase in grouped_phrases]
                 }
@@ -208,6 +245,39 @@ def save_rest(init_df, final_df, phrases, result_dir, file_dir, N, ignoring):
     # print(f'\nФайл с несгрупированными фразами сохранен')
 
 
+def unique_search(df):
+    length = len(df)
+    print('\nЭтап III/III')  # вывод информации об этапе
+    current_group = None
+    for index in range(len(df)):
+        print(f'\r{round(index / (length - 1) * 100, 2)}%', end='')  # вывести процент обработанных групп и записать
+        group = df.at[index, 'GROUP']
+        if group == current_group:
+            df.at[index, 'GROUP_NAME'] = df.at[index - 1, 'GROUP_NAME']
+            continue
+        else:
+            current_group = group
+            uniq_phrases = []  # список с уникальными фразами, теми, которые есть только в данной группе
+            groups_with_non_uniq_phrases = []  # список с группами в которых находиться не уникальная фраза
+            phrases_by_group = df[df['GROUP'] == group]['PHRASES'].to_list()  # все фразы для одной группы
+            for phrase in phrases_by_group:
+                groups_by_phrase = df[df['PHRASES'] == phrase]['GROUP'].to_list()  # все группы для одной фразы
+                if len(groups_by_phrase) == 1:  # если True это значит, что фраза уникальна
+                    uniq_phrases.append(phrase)  # добавляем фразу в список уникальных фраз
+                else:  # если True это значит, что фраза НЕ уникальна
+                    groups_with_non_uniq_phrases.extend(groups_by_phrase)  # добавляем группы, в которых она встречается
+            else:
+                if len(uniq_phrases) == 0:  # если True, значит все фразы не уникальны
+                    groups_with_non_uniq_phrases = sorted(set(groups_with_non_uniq_phrases))
+                    groups_with_non_uniq_phrases = [str(num) for num in groups_with_non_uniq_phrases]
+                    df.at[
+                        index, 'GROUP_NAME'] = f"{df.at[index, 'GROUP_NAME']} [all phrases in - {', '.join(groups_with_non_uniq_phrases)}]"
+                else:  # если False, значит все фразы уникальны
+                    df.at[index, 'GROUP_NAME'] = f"{df.at[index, 'GROUP_NAME']} [{', '.join(uniq_phrases)}]"
+    else:
+        return df
+
+
 if __name__ == '__main__':
     dir = os.getcwd()  # вернуть текущую папку
     csv_files = [file for file in os.listdir(dir) if file.endswith(".csv")]  # список всех .csv файлов
@@ -219,13 +289,19 @@ if __name__ == '__main__':
     type_ratio = int(input('Укажите способ определения значимости адреса:\n'
                            '1 – через коэффициент итогового ранжирования (быстро),\n'
                            '2 – через коэффициенты вариации (медленно).\n'
+                           '3 – оба.\n'
                            'Ответ: '))  # запрос у пользователя способа определения веса адреса
     ignoring = input('Игнорировать домены, указанные в ignored_domains.txt (y/n)?\n'
                      'Ответ: ')  # запрос у пользователя на игнорирование доменов
+    ignoring_type = None
     if ignoring == 'y':  # если ответ пользователя разрешает игнорирование, то
+        ignoring_type = input('Выберете тип игнорирования:\n'
+                              '1 – по точному совпадению,\n'
+                              '2 – по вложенности.\n'
+                              'Ответ: ')  # запрос у пользователя то, как игнорировать домены
         ignoring = '_ignored'  # присваеваем ignoring новое занчение, которое понадобиться для названия файла
         print('Игнорирование включено!')  # выводим, что игнорирование разрешено
-    else:  # если пользоватлеь запрелит игнорирование
+    else:  # если пользоватлеь запретит игнорирование
         ignored_list.clear()  # то список с игнорироемыми доменами очищается
         ignoring = ''  # присваеваем ignoring новое занчение, которое понадобиться для названия файла
         print('Игнорирование отключено!')  # # выводим, что игнорирование отключено
@@ -237,7 +313,7 @@ if __name__ == '__main__':
     for file in csv_files:  # для каждого файла в списке
         print(f'\nРабота с файлом {file}')  # вывести имя файла
         df = pd.read_csv(file, sep=';')  # создать DataFrame
-        final_df, ratio_df = group(df)  # групировка фраз и создание final_df
+        final_df, ratio_df = group(df, ignoring_type)  # групировка фраз и создание final_df
 
         file_dir = file[:-4]  # имя папки внутри папки result_dir
         file_name = f'{file_dir}_(N = {N}){ignoring}'  # имя сохраняемого файла
@@ -247,12 +323,13 @@ if __name__ == '__main__':
         final_df = final_df.reset_index(drop=True)  # реиндексирование
         phrases = list(sorted(set(df['PHRASES'].to_list())))  # получить список фраз из начального dataFrame
         save_rest(df, final_df, phrases, result_dir, file_dir, N, ignoring)  # сохранение несгрупированных фраз в
-        # отделный
-        # файл
+        # отделный файл
 
-        final_df.to_csv(f'{result_dir}/{file_dir}/{file_name}_grouped.csv', sep=';', index=False)  # запись в
-        # файл
         ratio_df.to_csv(f'{result_dir}/{file_dir}/{file_name}_coefficients.csv', sep=';', index=False)  # запись в файл
+
+        final_df = unique_search(final_df)
+
+        final_df.to_csv(f'{result_dir}/{file_dir}/{file_name}_grouped.csv', sep=';', index=False)  # запись в файл
 
         # final_df = filtration(final_df)  # вызов функции по удалению групп, содержащихся в других группах
         # final_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_filtered.csv', sep=';', index=False)  # запись в файл
