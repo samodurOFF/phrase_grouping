@@ -107,10 +107,9 @@ def group(N, phrase_urls_dict, type_ratio):
     print('\nЭтап I/II')  # вывод информации об этапе
 
     for item, phrase in enumerate(phrases):  # для каждой фразы в списке фраз
-        print(f'\r{round(item + 1 / (length) * 100, 2)}%', end='')  # вывести процент отработанных фраз
+        print(f'\r{round((item + 1) / length * 100, 2)}%', end='')  # вывести процент отработанных фраз
         intersection = phrase_urls_dict[phrase]  # список начального пересечения
         grouped_phrases = []  # список фраз, имеющих одну группу
-
         for current_phrase in phrases[item + 1:]:  # для каждой фразы в списке фраз, не включающий предыдущие фразы
             current_urls = phrase_urls_dict[current_phrase]  # получить список адресов
             new_intersection = intersection & current_urls  # найти пересечение адресов двух фраз
@@ -157,7 +156,7 @@ def two_stage_group(group_df, ratio_df, N, phrase_urls_dict, type_ratio):
 
     for i, items in enumerate(group_phrases_dict_main.items()):
         group, phrases = items  # номер группы и ее фразы
-        print(f'\r{round(i + 1 / (length) * 100, 2)}%', end='')  # вывести процент отработанных фраз
+        print(f'\r{round((i + 1 )/ (length) * 100, 2)}%', end='')  # вывести процент отработанных фраз
 
         result_buffer = []
         ratio_buffer = []
@@ -247,7 +246,7 @@ def unique_search(df):
     group_name_dict = {group: tuple(frame['GROUP_NAME'])[0] for group, frame in
                        natsorted(df.groupby('GROUP'))}  # {group: [group_name1, ...]}
     for index, data in enumerate(list_of_dict):  # index - индекс словаря   , data – сам словарь
-        print(f'\r{round(index + 1 / (length) * 100, 2)}%', end='')  # вывести процент отработанных фраз
+        print(f'\r{round((index + 1) / (length) * 100, 2)}%', end='')  # вывести процент отработанных фраз
         group = data['GROUP']
         group_name = group_name_dict[group]
 
