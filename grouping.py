@@ -107,7 +107,7 @@ def group(N, phrase_urls_dict, type_ratio):
     print('\nЭтап I/II')  # вывод информации об этапе
 
     for item, phrase in enumerate(phrases):  # для каждой фразы в списке фраз
-        print(f'\r{round(item / (length - 1) * 100, 2)}%', end='')  # вывести процент отработанных фраз
+        print(f'\r{round(item + 1 / (length) * 100, 2)}%', end='')  # вывести процент отработанных фраз
         intersection = phrase_urls_dict[phrase]  # список начального пересечения
         grouped_phrases = []  # список фраз, имеющих одну группу
 
@@ -157,9 +157,7 @@ def two_stage_group(group_df, ratio_df, N, phrase_urls_dict, type_ratio):
 
     for i, items in enumerate(group_phrases_dict_main.items()):
         group, phrases = items  # номер группы и ее фразы
-        # print(group)
-        # phrases = list(phrases)
-        print(f'\r{round(i / (length - 1) * 100, 2)}%', end='')  # вывести процент отработанных фраз
+        print(f'\r{round(i + 1 / (length) * 100, 2)}%', end='')  # вывести процент отработанных фраз
 
         result_buffer = []
         ratio_buffer = []
@@ -210,7 +208,6 @@ def two_stage_group(group_df, ratio_df, N, phrase_urls_dict, type_ratio):
             old_result = pd.DataFrame(old_result)
             old_result['GROUP_NAME'] = name
             old_result = old_result.to_dict(orient='records')  # старый список для группы
-            # print(old_result)
             result_list.extend(old_result)  # добавить без изменений
 
             old_ratios = ratio_df[ratio_df['GROUP'] == group].to_dict(orient='records')  # старый список коэффициентов
@@ -219,12 +216,6 @@ def two_stage_group(group_df, ratio_df, N, phrase_urls_dict, type_ratio):
         else:
             result_list.extend(result_buffer)
             ratio_list.extend(ratio_buffer)
-
-        # if group > 1:
-        #     # print(group)
-        #     print(pd.DataFrame(result_list)[['PHRASES', 'GROUP']])
-        #     print(pd.DataFrame(ratio_list))
-        # break
 
     return result_list, pd.DataFrame(ratio_list)
 
@@ -241,8 +232,7 @@ def unique_search(df):
     '''
     Функция для поиска уникальных и неуникальных фраз
 
-    :param df: сгруппированный DataFrame с фразами
-    :param grouped_dict: словарь структурой {номер группы: список фраз}
+    :param df: сгруппированный DataFrame с фразами.
     :return:
     '''
     print('\nЭтап II/II')  # вывод информации об этапе
@@ -257,7 +247,7 @@ def unique_search(df):
     group_name_dict = {group: tuple(frame['GROUP_NAME'])[0] for group, frame in
                        natsorted(df.groupby('GROUP'))}  # {group: [group_name1, ...]}
     for index, data in enumerate(list_of_dict):  # index - индекс словаря   , data – сам словарь
-        print(f'\r{round(index / (length - 1) * 100, 2)}%', end='')  # вывести процент обработанных групп и записать
+        print(f'\r{round(index + 1 / (length) * 100, 2)}%', end='')  # вывести процент отработанных фраз
         group = data['GROUP']
         group_name = group_name_dict[group]
 
@@ -274,8 +264,6 @@ def unique_search(df):
                     groups_with_non_uniq_phrases.extend(groups_by_phrase)  # добавляем группы, в которых она встречается
 
             if not uniq_phrases:  # если uniq_phrases пуст, то это значит все фразы неуникальны
-                # print(groups_with_non_uniq_phrases)
-
                 groups_with_non_uniq_phrases = list(map(str, sorted(set(groups_with_non_uniq_phrases))))
                 new_name = f"{group_name} [all phrases in - {', '.join(groups_with_non_uniq_phrases)}]"
 
@@ -397,6 +385,3 @@ if __name__ == '__main__':
                            index=False)  # запись в файл
 
     print('\nDONE!')
-
-# вернуть старое имя
-# разобраться с чтением
