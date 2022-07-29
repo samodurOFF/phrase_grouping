@@ -97,7 +97,7 @@ def get_group_name(grouped_phrases):
 
 
 def group(N, phrase_urls_dict, type_ratio):
-    phrases = tuple(phrase_urls_dict.keys())
+    phrases = set(phrase_urls_dict.keys())  # получить множество с фразами
     length = len(phrases)  # посчитать длину списка с фразами
 
     final_list = []  # пустой финальный список для сгруппированных данных
@@ -109,22 +109,21 @@ def group(N, phrase_urls_dict, type_ratio):
     for item, phrase in enumerate(phrases):  # для каждой фразы в списке фраз
         print(f'\r{round((item + 1) / length * 100, 2)}%', end='')  # вывести процент отработанных фраз
         intersection = phrase_urls_dict[phrase]  # список начального пересечения
-        grouped_phrases = []  # список фраз, имеющих одну группу
-        for current_phrase in phrases[item + 1:]:  # для каждой фразы в списке фраз, не включающий предыдущие фразы
-            current_urls = phrase_urls_dict[current_phrase]  # получить список адресов
-            new_intersection = intersection & current_urls  # найти пересечение адресов двух фраз
-            if len(new_intersection) >= N:  # если количество пересечений больше или равно N
-                grouped_phrases.append(current_phrase)  # то добавить фразу в список фраз одной группы
-                intersection = new_intersection  # присвоить списку с пересечениями новое значение
+        grouped_phrases = {phrase}  # множество фраз, имеющих одну группу
+        for current_phrase in phrases:  # для каждой фразы в списке фраз
+            if current_phrase != phrase and current_phrase not in grouped_phrases:
+                current_urls = phrase_urls_dict[current_phrase]  # получить список адресов
+                new_intersection = intersection & current_urls  # найти пересечение адресов двух фраз
+                if len(new_intersection) >= N:  # если количество пересечений больше или равно N
+                    grouped_phrases.add(current_phrase)  # то добавить фразу в список фраз одной группы
+                    intersection = new_intersection  # присвоить списку с пересечениями новое значение
 
-        grouped_phrases.append(phrase)  # добавить начальную фразу
-        grouped_phrases = set(grouped_phrases)
         if len(grouped_phrases) > 1:  # если проход по фразе нашел пересечение хотя бы с одной фразой
             if not grouped_phrases.difference(*group_phrases_dict.values()):
                 continue
             # если данный список с фразами не содержится в списке фраз другой группы, то выполнить код ниже
 
-            ratio_frame = ratio(phrase_urls_dict, grouped_phrases, intersection, group_num, type_ratio)  # коэффициенты
+            ratio_frame = ratio(phrase_urls_dict, grouped_phrases, intersection, str(group_num), type_ratio)  # коэффициенты
             ratio_list.extend(ratio_frame)  # добавить в итоговый ratio_list
             group_phrases_dict[group_num] = grouped_phrases  # добавить в словарь группа: список фраз
             group_name = get_group_name(grouped_phrases)
@@ -148,7 +147,7 @@ def two_stage_group(group_df, ratio_df, N, phrase_urls_dict, type_ratio):
     result_list = []  # пустой финальный список для сгруппированных данных
     ratio_list = []  # пустой финальный список с данными коэффициентов
 
-    group_phrases_dict_main = {group: frame['PHRASES'] for group, frame in
+    group_phrases_dict_main = {group: set(frame['PHRASES']) for group, frame in
                                natsorted(group_df.groupby('GROUP'))}  # {group: [phrase1, ...]}
 
     length = len(group_phrases_dict_main)  # длина словаря со сгруппированными фразами
@@ -156,53 +155,61 @@ def two_stage_group(group_df, ratio_df, N, phrase_urls_dict, type_ratio):
 
     for i, items in enumerate(group_phrases_dict_main.items()):
         group, phrases = items  # номер группы и ее фразы
-        print(f'\r{round((i + 1 )/ (length) * 100, 2)}%', end='')  # вывести процент отработанных фраз
+        print(f'\r{round((i + 1) / (length) * 100, 2)}%', end='')  # вывести процент отработанных фраз
 
         result_buffer = []
         ratio_buffer = []
-        group_num = 1  # начальное значение группы
-        group_phrases_dict = {}  # пустой словарь, где ключи – группы, а значение – список фраз
-        for item, phrase in enumerate(phrases):  # для каждой фразы в списке фраз
+        group_num = 0  # начальное значение группы
+        group_phrases_dict = {}  # пустой словарь, где ключи – группы, а значение – множество фраз
+        for phrase in phrases:  # для каждой фразы в списке фраз
             intersection = phrase_urls_dict[phrase]  # список начального пересечения
-            grouped_phrases = []  # список фраз, имеющих одну группу
+            grouped_phrases = {phrase}  # список фраз, имеющих одну группу
 
-            for current_phrase in phrases[item + 1:]:  # для каждой фразы в списке фраз, не включающий предыдущие фразы
-                current_urls = phrase_urls_dict[current_phrase]  # получить список адресов
-                new_intersection = intersection & current_urls  # найти пересечение адресов двух фраз
-                if len(new_intersection) >= N:  # если количество пересечений больше или равно N
-                    grouped_phrases.append(current_phrase)  # то добавить фразу в список фраз одной группы
-                    intersection = new_intersection  # присвоить списку с пересечениями новое значение
+            for current_phrase in phrases:  # для каждой фразы в списке фраз, не включающий предыдущие фразы
+                if current_phrase != phrase and current_phrase not in grouped_phrases:
+                    current_urls = phrase_urls_dict[current_phrase]  # получить список адресов
+                    new_intersection = intersection & current_urls  # найти пересечение адресов двух фраз
+                    if len(new_intersection) >= N:  # если количество пересечений больше или равно N
+                        grouped_phrases.add(current_phrase)  # то добавить фразу в список фраз одной группы
+                        intersection = new_intersection  # присвоить списку с пересечениями новое значение
 
-            grouped_phrases.append(phrase)  # добавить начальную фразу
-            grouped_phrases = set(grouped_phrases)  # сделать множеством
+            if len(grouped_phrases) > 1:  # если проход по фразе нашел пересечение хотя бы с одной фразой
+                if not grouped_phrases.difference(*group_phrases_dict.values()):
+                    continue
+                    # если данный список с фразами не содержится в списке фраз другой группы, то выполнить код ниже
 
-            if not grouped_phrases.difference(*group_phrases_dict.values()):
-                continue
-                # если данный список с фразами не содержится в списке фраз другой группы, то выполнить код ниже
+                if len(phrases) == len(grouped_phrases):  # если число начальных фраз равно числу сгруппированных
+                    new_group_number = group  # то оставить старый номер группы
+                else:  # иначе
+                    group_num += 1  # увеличить номер подгруппы на 1
+                    new_group_number = f'{group}_{group_num}'  # и создать новый номер, как старый номер_номер подгруппы
 
-            new_group_number = group if len(phrases) == len(grouped_phrases) else f'{group}_{group_num}'
-            ratio_frame = ratio(phrase_urls_dict, grouped_phrases, intersection, new_group_number,
-                                type_ratio)  # коэффициенты
-            ratio_buffer.extend(ratio_frame)  # добавить в итоговый ratio_list
-            group_phrases_dict[new_group_number] = grouped_phrases  # добавить в словарь группа: список фраз
-            group_name = get_group_name(grouped_phrases)
-            main_page_count = count_main_urls(intersection)  # посчитать количество главных страниц
-            # добавить в buffer список со словарями следующей структуры
-            result_buffer.extend([{
-                'PHRASES': phrase,
-                'GROUP': new_group_number,
-                'GROUP_NAME': group_name,
-                'MAIN_PAGE_COUNT': main_page_count,
-                'URLS': ', '.join(intersection)
-            } for phrase in grouped_phrases])
+                ratio_frame = ratio(phrase_urls_dict, grouped_phrases, intersection, new_group_number,
+                                    type_ratio)  # коэффициенты
+                ratio_buffer.extend(ratio_frame)  # добавить в итоговый ratio_list
+                group_phrases_dict[new_group_number] = grouped_phrases  # добавить в словарь группа: список фраз
+                group_name = get_group_name(grouped_phrases)
+                main_page_count = count_main_urls(intersection)  # посчитать количество главных страниц
+                # добавить в buffer список со словарями следующей структуры
+                result_buffer.extend([{
+                    'PHRASES': phrase,
+                    'GROUP': new_group_number,
+                    'GROUP_NAME': group_name,
+                    'MAIN_PAGE_COUNT': main_page_count,
+                    'URLS': ', '.join(intersection)
+                } for phrase in grouped_phrases])
 
-            if len(phrases) == len(grouped_phrases):
-                break
+                if len(phrases) == len(grouped_phrases):
+                    break
 
-            group_num += 1  # увеличить группу на 1
+        if len(result_buffer) < len(phrases):
+            result_list.extend(result_buffer) # добавляем буферный список словарей с фразами
+            ratio_list.extend(ratio_buffer)  # добавляем буферный список словарей
+            # несгруппированные фразы
+            nor_grouped_phrases = phrases.difference({data['PHRASES'] for data in result_buffer})
 
-        if not result_buffer or len(result_buffer) == len(phrases):
             old_result = group_df[group_df['GROUP'] == group]
+            old_result = old_result[old_result['PHRASES'].isin(nor_grouped_phrases)]
             name = set(old_result['GROUP_NAME']).pop().split(' [')[0]
             old_result = pd.DataFrame(old_result)
             old_result['GROUP_NAME'] = name
@@ -213,15 +220,15 @@ def two_stage_group(group_df, ratio_df, N, phrase_urls_dict, type_ratio):
             ratio_list.extend(old_ratios)  # добавить без изменений
 
         else:
-            result_list.extend(result_buffer)
-            ratio_list.extend(ratio_buffer)
+            result_list.extend(result_buffer) # добавляем буферный список словарей
+            ratio_list.extend(ratio_buffer) # добавляем буферный список словарей
 
     return result_list, pd.DataFrame(ratio_list)
 
 
 def save_rest(init_df, final_df, phrases, result_dir, file_dir, N, ignoring):
-    phrases_after = sorted(set(final_df['PHRASES'].to_list()))  # все сгруппированные фразы
-    diff_list = list(set(phrases) - set(phrases_after))  # фразы, которые не были сгруппированы
+    phrases_after = sorted(set(final_df['PHRASES']))  # все сгруппированные фразы
+    diff_list = list(phrases - set(phrases_after))  # фразы, которые не были сгруппированы
     diff_df = init_df[init_df['PHRASES'].isin(diff_list)]  # сортировка по несгруппированным фразам
     diff_df.to_csv(f'{result_dir}/{file_dir}/{file_dir}_(N = {N}){ignoring}_rest.csv', sep=';', index=False)  # запись
     # print(f'\nФайл с несгруппированными фразами сохранен')
@@ -239,7 +246,7 @@ def unique_search(df):
     current_group = None  # текущая группа
     new_name = ''  # новое имя группы
     list_of_dict = df.to_dict(orient='records')  # список словарей
-    phrase_groups_dict = {phrase: frame['GROUP'] for phrase, frame in
+    phrase_groups_dict = {phrase: set(frame['GROUP']) for phrase, frame in
                           natsorted(df.groupby('PHRASES'))}  # {phrase: [group1, ...]}
     group_phrases_dict = {group: set(frame['PHRASES']) for group, frame in
                           natsorted(df.groupby('GROUP'))}  # {group: [phrase1, ...]}
@@ -329,11 +336,10 @@ if __name__ == '__main__':
     for file in csv_files:  # для каждого файла в списке
         print(f'\nРабота с файлом {file}')  # вывести имя файла
         df = pd.read_csv(file, sep=';')  # создать DataFrame
-        phrases = sorted(set(df['PHRASES']))  # получить список фраз из начального dataFrame
-        phrase_urls_dict = {phrase: frame['URL'] for phrase, frame in
+        phrase_urls_dict = {phrase: set(frame['URL']) for phrase, frame in
                             natsorted(df.groupby('PHRASES'))}  # словарь: {фраза: [адрес1, адрес2, ...]}
-
-        for index, phrase in enumerate(phrases):  # для каждой фразы и ее индекса в списке фраз
+        phrases = set(phrase_urls_dict.keys())  # получить список фраз из начального dataFrame
+        for phrase in phrase_urls_dict:  # для каждой фразы и ее индекса в списке фраз
             url_list = phrase_urls_dict[phrase]
             if ignoring_type == '1':  # если тип игнорирования выставлен на совпадения или не задан, то
                 # добавить в словарь список адресов по фразе, кроме игнорируемых
