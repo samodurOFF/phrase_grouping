@@ -128,7 +128,7 @@ def group(N, phrase_urls_dict, type_ratio):
         for current_phrase in phrases:  # для каждой фразы в списке фраз
             if current_phrase != phrase and current_phrase not in grouped_phrases:
                 current_urls = phrase_urls_dict[current_phrase]  # получить список адресов
-                new_intersection = intersection & current_urls  # найти пересечение адресов двух фраз
+                new_intersection = set(intersection) & set(current_urls)  # найти пересечение адресов двух фраз
                 if len(new_intersection) >= N:  # если количество пересечений больше или равно N
                     grouped_phrases.add(current_phrase)  # то добавить фразу в список фраз одной группы
                     intersection = new_intersection  # присвоить списку с пересечениями новое значение
@@ -184,7 +184,7 @@ def two_stage_group(group_df, ratio_df, N, phrase_urls_dict, type_ratio):
             for current_phrase in phrases:  # для каждой фразы в списке фраз, не включающий предыдущие фразы
                 if current_phrase != phrase and current_phrase not in grouped_phrases:
                     current_urls = phrase_urls_dict[current_phrase]  # получить список адресов
-                    new_intersection = intersection & current_urls  # найти пересечение адресов двух фраз
+                    new_intersection = set(intersection) & set(current_urls)  # найти пересечение адресов двух фраз
                     if len(new_intersection) >= N:  # если количество пересечений больше или равно N
                         grouped_phrases.add(current_phrase)  # то добавить фразу в список фраз одной группы
                         intersection = new_intersection  # присвоить списку с пересечениями новое значение
@@ -352,19 +352,19 @@ if __name__ == '__main__':
     for file in csv_files:  # для каждого файла в списке
         print(f'\nРабота с файлом {file}')  # вывести имя файла
         df = pd.read_csv(file, sep=';')  # создать DataFrame
-        phrase_urls_dict = {phrase: set(frame['URL']) for phrase, frame in
+        phrase_urls_dict = {phrase: frame['URL'] for phrase, frame in
                             natsorted(df.groupby('PHRASES'))}  # словарь: {фраза: [адрес1, адрес2, ...]}
         phrases = set(phrase_urls_dict.keys())  # получить список фраз из начального dataFrame
         for phrase in phrase_urls_dict:  # для каждой фразы и ее индекса в списке фраз
             url_list = phrase_urls_dict[phrase]
             if ignoring_type == '1':  # если тип игнорирования выставлен на совпадения или не задан, то
                 # добавить в словарь список адресов по фразе, кроме игнорируемых
-                phrase_urls_dict[phrase] = set(url for domain in ignored_list for url in url_list if url == domain)
+                phrase_urls_dict[phrase] = list(url for domain in ignored_list for url in url_list if url == domain)
             elif ignoring_type == '2':  # если тип игнорирования выставлен на вхождение, то
                 # добавить в словарь список адресов по фразе, кроме игнорируемых
-                phrase_urls_dict[phrase] = set(url for domain in ignored_list for url in url_list if url in domain)
+                phrase_urls_dict[phrase] = list(url for domain in ignored_list for url in url_list if url in domain)
             else:  # если игнорирование не задано, то
-                phrase_urls_dict[phrase] = set(url_list)
+                phrase_urls_dict[phrase] = list(url_list)
 
         grouped, ratios, group_phrases_dict = group(
             N,
