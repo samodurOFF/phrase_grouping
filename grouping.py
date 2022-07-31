@@ -29,7 +29,7 @@ def check_phrase(group_phrases_dict, grouped_phrases):
     return False
 
 
-def ratio(main_dict, grouped_phrases, grouped_urls, group_number, type_ratio=1):
+def ratio(main_dict, grouped_phrases, grouped_urls, group_number, type_ratio='1'):
     if type_ratio == '1':  # если type_ratio равен 1 или не задан, то считаем l коэффициент
         length = len(grouped_phrases)  # количество фраз в группе
         ratio_list = []  # финальный список
@@ -37,10 +37,10 @@ def ratio(main_dict, grouped_phrases, grouped_urls, group_number, type_ratio=1):
             l_i = 0  # начальное значение
             for phrase in grouped_phrases:
                 urls = main_dict[phrase]  # список адресов для конкретной фразы из исходного файла
-                r_i = len(urls)  # длина DataFrame по фразе
+                r_i = len(urls)  # длина массива адресов фразы
                 for s_i_j, url in enumerate(urls, start=1):  # для каждого ранга, адреса в списке адресов из df_phrase
                     if grouped_url == url:  # если адрес из сгруппированного списка совпадает с адресом из исходника
-                        l_i = s_i_j / r_i + l_i  # посчитать промежуточный коэффициент итогового ранжирования
+                        l_i += s_i_j / r_i  # посчитать промежуточный коэффициент итогового ранжирования
             else:
                 ratio_list.append({
                     'GROUP': group_number,  # добавление номера группы в финальный список
@@ -74,9 +74,10 @@ def ratio(main_dict, grouped_phrases, grouped_urls, group_number, type_ratio=1):
         else:
             return ratio_list
     else:  # если type_ratio равен 3, то считаем все коэффициенты
-        l_ratio = ratio(main_dict, grouped_phrases, grouped_urls, group_number, 1)  # используем эту функцию еще раз
+        l_ratio = ratio(main_dict, grouped_phrases, grouped_urls, group_number, '1')  # используем эту функцию еще раз
         l_ratio = pd.DataFrame(l_ratio)['L_RATIO']  # создаем DF, чтобы быстро отсортировать
-        ratio_list = ratio(main_dict, grouped_phrases, grouped_urls, group_number, 2)  # используем эту функцию еще раз
+        ratio_list = ratio(main_dict, grouped_phrases, grouped_urls, group_number,
+                           '2')  # используем эту функцию еще раз
         ratio_df = pd.DataFrame(ratio_list)  # создаем DF, чтобы быстро отсортировать
         ratio_df['L_RATIO'] = l_ratio  # добавляем новый столбец
         final_df = ratio_df.sort_values('L_RATIO', ascending=True)  # сортируем
@@ -92,8 +93,22 @@ def get_group_name(grouped_phrases):
     """
 
     # список всех уникальных слов списка фраз группы
-    all_words = sorted({word for phrase in grouped_phrases for word in phrase.split()}, reverse=True)
-    return ' '.join([str(i) for i in all_words])  # объединение ключей в имя группы
+    all_words = [word for phrase in grouped_phrases for word in phrase.split()]
+    frequency_dict = {}
+    for word in set(all_words):
+        frequency = all_words.count(word)
+        if frequency in frequency_dict:
+            frequency_dict[frequency].append(word)
+        else:
+            frequency_dict[frequency] = [word]
+    for key, values in frequency_dict.items():
+        frequency_dict[key] = sorted(values)
+
+    lst = []
+    for key in sorted(frequency_dict, reverse=True):
+        lst.extend(frequency_dict[key])
+
+    return ' '.join(lst)
 
 
 def group(N, phrase_urls_dict, type_ratio):
@@ -123,7 +138,8 @@ def group(N, phrase_urls_dict, type_ratio):
                 continue
             # если данный список с фразами не содержится в списке фраз другой группы, то выполнить код ниже
 
-            ratio_frame = ratio(phrase_urls_dict, grouped_phrases, intersection, str(group_num), type_ratio)  # коэффициенты
+            ratio_frame = ratio(phrase_urls_dict, grouped_phrases, intersection, str(group_num),
+                                type_ratio)  # коэффициенты
             ratio_list.extend(ratio_frame)  # добавить в итоговый ratio_list
             group_phrases_dict[group_num] = grouped_phrases  # добавить в словарь группа: список фраз
             group_name = get_group_name(grouped_phrases)
@@ -140,7 +156,7 @@ def group(N, phrase_urls_dict, type_ratio):
 
             # break
 
-    return final_list, pd.DataFrame(ratio_list), group_phrases_dict
+    return final_list, pd.DataFrame(ratio_list).sort_values(by='GROUP').reset_index(drop=True), group_phrases_dict
 
 
 def two_stage_group(group_df, ratio_df, N, phrase_urls_dict, type_ratio):
@@ -203,7 +219,7 @@ def two_stage_group(group_df, ratio_df, N, phrase_urls_dict, type_ratio):
                     break
 
         if len(result_buffer) < len(phrases):
-            result_list.extend(result_buffer) # добавляем буферный список словарей с фразами
+            result_list.extend(result_buffer)  # добавляем буферный список словарей с фразами
             ratio_list.extend(ratio_buffer)  # добавляем буферный список словарей
             # несгруппированные фразы
             nor_grouped_phrases = phrases.difference({data['PHRASES'] for data in result_buffer})
@@ -220,10 +236,10 @@ def two_stage_group(group_df, ratio_df, N, phrase_urls_dict, type_ratio):
             ratio_list.extend(old_ratios)  # добавить без изменений
 
         else:
-            result_list.extend(result_buffer) # добавляем буферный список словарей
-            ratio_list.extend(ratio_buffer) # добавляем буферный список словарей
+            result_list.extend(result_buffer)  # добавляем буферный список словарей
+            ratio_list.extend(ratio_buffer)  # добавляем буферный список словарей
 
-    return result_list, pd.DataFrame(ratio_list)
+    return result_list, pd.DataFrame(ratio_list).sort_values(by='GROUP').reset_index(drop=True)
 
 
 def save_rest(init_df, final_df, phrases, result_dir, file_dir, N, ignoring):
@@ -361,7 +377,7 @@ if __name__ == '__main__':
         if not os.path.exists(f'{result_dir}/{file_dir}'):  # если данная директория не существует,
             os.mkdir(f'{result_dir}/{file_dir}')  # то ее необходимо создать
 
-        grouped = pd.DataFrame(grouped).reset_index(drop=True)  # перевод в DataFrame и реиндексирование
+        grouped = pd.DataFrame(grouped).sort_values(by='GROUP').reset_index(drop=True)  # сортировка и реиндексирование
         save_rest(df, grouped, phrases, result_dir, file_dir, N, ignoring)  # сохранение несгруппированных фраз в
         # отдельный файл
 
@@ -380,7 +396,7 @@ if __name__ == '__main__':
 
             grouped, ratios, = two_stage_group(grouped, ratios, N2, phrase_urls_dict, type_ratio)
 
-            grouped = pd.DataFrame(grouped).reset_index(drop=True)  # перевод в DataFrame и реиндексирование
+            grouped = pd.DataFrame(grouped).sort_values(by='GROUP').reset_index(drop=True).reset_index(drop=True)
 
             file_name += f'_(N = {N2})'
             ratios.to_csv(f'{result_dir}/{file_dir}/{file_name}_coefficients.csv', sep=';',
